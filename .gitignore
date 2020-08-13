@@ -4,4 +4,8 @@
 out
 gen
 /bot
-nicks.txt
+dbtest.py
+AuthBot.py
+channel.txt
+clan_members.db
+.gitignore
