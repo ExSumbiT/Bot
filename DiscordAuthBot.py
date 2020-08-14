@@ -1,10 +1,12 @@
-import re, discord
-from discord.ext import commands, tasks
 import asyncio
+import discord
 import random
+import re
 import sqlite3
-from tabulate import tabulate
 from datetime import datetime
+
+from discord.ext import commands, tasks
+from tabulate import tabulate
 
 conn = sqlite3.connect()  # или :memory: чтобы сохранить в RAM
 cursor = conn.cursor()
@@ -210,7 +212,8 @@ async def on_raw_reaction_add(payload):
         if len(user.roles) > 1:
             pass
         else:
-            await auth_channel.send(f'Привет, {user.mention}!\nФорма анкеты для авторизации на сервере:\n'
+            await auth_channel.send(f'Привет, {user.mention}!\n'
+                                    f'Форма анкеты для авторизации на сервере(одним сообщением, обязательно!):\n'
                                     f'1. Nickname\n2. Clan\n3. Name\nПример анкеты:\n'
                                     f'1. Kreg78\n2. Equilibrium\n3. Тимур\nПоставьте прочерк "-" на втором пункте, '
                                     f'если Вы не состоите в клане.\nСоблюдение формы обязательно, потому что '
