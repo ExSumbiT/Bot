@@ -161,7 +161,6 @@ def find_clan(guild: discord.Guild, clan_name: str) -> discord.Role:
 
 async def authorize(guild: discord.Guild, user: discord.Member, message: str):
     await user.edit(nick=f'{message[0].split(".")[1]} [{message[2].split(".")[1]}]')
-    # await user.add_roles(discord.utils.get(guild.roles, id=742319467719295029))
     await user.add_roles(discord.utils.get(guild.roles, id=660617694118150184))  # Equilibrium_guest
     try:
         await user.add_roles(find_clan(guild, message[1].split(".")[1]))  # off. clan role
@@ -211,7 +210,6 @@ async def on_raw_reaction_add(payload):
         if len(user.roles) > 1:
             pass
         else:
-            # await user.add_roles(discord.utils.get(guild.roles, id=662080379330494474))  # waited
             await auth_channel.send(f'Привет, {user.mention}!\nФорма анкеты для авторизации на сервере:\n'
                                     f'1. Nickname\n2. Clan\n3. Name\nПример анкеты:\n'
                                     f'1. Kreg78\n2. Equilibrium\n3. Тимур\nПоставьте прочерк "-" на втором пункте, '
