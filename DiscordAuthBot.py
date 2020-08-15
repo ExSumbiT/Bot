@@ -210,7 +210,7 @@ async def on_raw_reaction_add(payload):
             pass
     elif payload.channel_id == 660665545800024083:
         if len(user.roles) > 1:
-            pass
+            await user.remove_roles(discord.utils.get(guild.roles, id=662080379330494474))  # waited
         else:
             await auth_channel.send(f'Привет, {user.mention}!\n'
                                     f'Форма анкеты для авторизации на сервере(одним сообщением, обязательно!):\n'
