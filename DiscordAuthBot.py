@@ -138,7 +138,8 @@ async def on_message(message):
                     if user.roles[_].name == color_role.name:
                         if user.roles[_ - 1].name == perms_role.name:
                             pass
-                        await user.remove_roles(user.roles[_ - 1])
+                        else:
+                            await user.remove_roles(user.roles[_ - 1])
                         await user.add_roles(new_role)
                         break
                 await message.add_reaction(bot.get_emoji(id=662134292058734614))
@@ -269,14 +270,13 @@ async def remove(ctx, nickname: str):
 
 
 @tasks.loop(hours=24)
-async def birthday_notification(ctx):
-    channel = bot.get_channel(660808504646303744)
+async def birthday_notification():
+    channel = bot.get_channel(660797576362328066)  # news
     emoji = bot.get_emoji(733391075208593479)
     message = f' сегодня День Рождения{emoji}\nОт всего нашего мини сообщества, поздравляем тебя с этим днем!'
     bday = []
     for row in cursor.execute(f"select strftime('%d-%m', date(birthday/1000, 'unixepoch')) from members"):
         bday.append(row[0])
-    bday.append('02-08')
     today = datetime.strftime(datetime.now(), '%d-%m')
     if today in bday:
         for row in cursor.execute(f"select nickname from members "
