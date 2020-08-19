@@ -213,13 +213,24 @@ async def on_raw_reaction_add(payload):
         if len(user.roles) > 1:
             await user.remove_roles(discord.utils.get(guild.roles, id=662080379330494474))  # waited
         else:
-            await auth_channel.send(f'Привет, {user.mention}!\n'
+            welcome_message = await auth_channel.send(f'Привет, {user.mention}!\n'
                                     f'Форма анкеты для авторизации на сервере(одним сообщением, обязательно!):\n'
                                     f'1. Nickname\n2. Clan\n3. Name\nПример анкеты:\n'
                                     f'1. Kreg78\n2. Equilibrium\n3. Тимур\nПоставьте прочерк "-" на втором пункте, '
                                     f'если Вы не состоите в клане.\nСоблюдение формы обязательно, потому что '
                                     f'авторизация производится автоматически мной(ботом)!\n'
-                                    f'*При несоблюдении формы анкеты Вас не авторизуют.')
+                                    f'*при несоблюдении формы анкеты Вас не авторизуют.')
+
+            def check(message):
+                return user == message.author
+
+            try:
+                message = await bot.wait_for('message', check=check, timeout=300)
+            except asyncio.TimeoutError:
+                await user.remove_roles(discord.utils.get(guild.roles, id=662080379330494474))  # waited
+                await welcome_message.delete()
+            else:
+                pass
 
 
 def add_user_to_db(user):
