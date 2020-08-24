@@ -8,9 +8,8 @@ from datetime import datetime
 from discord.ext import commands, tasks
 from tabulate import tabulate
 
-conn = sqlite3.connect()  # или :memory: чтобы сохранить в RAM
+conn = sqlite3.connect('')  # или :memory: чтобы сохранить в RAM
 cursor = conn.cursor()
-
 
 bot = commands.Bot(command_prefix='|')
 
@@ -211,6 +210,7 @@ async def on_raw_reaction_add(payload):
             pass
     elif payload.channel_id == 660665545800024083:
         if len(user.roles) > 1:
+            await asyncio.sleep(2)
             await user.remove_roles(discord.utils.get(guild.roles, id=662080379330494474))  # waited
         else:
             welcome_message = await auth_channel.send(f'Привет, {user.mention}!\n'
@@ -278,6 +278,12 @@ async def remove(ctx, nickname: str):
     cursor.execute(f"delete from members where nickname=?", (nickname,))
     conn.commit()
     await edit(ctx)
+
+
+@bot.command(pass_context=True)
+async def poll(ctx):
+    await ctx.message.add_reaction(bot.get_emoji(662134317446725633))  # deny
+    await ctx.message.add_reaction(bot.get_emoji(662134292058734614))  # accept
 
 
 @tasks.loop(hours=24)
