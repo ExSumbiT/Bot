@@ -4,14 +4,18 @@ import random
 import re
 import sqlite3
 from datetime import datetime
+import mysql.connector
 
 from discord.ext import commands, tasks
 from tabulate import tabulate
 
-conn = sqlite3.connect('')  # или :memory: чтобы сохранить в RAM
+conn = mysql.connector.connect(user='', password='',
+                               host='',
+                               database='djangoDB', charset='utf8')
+# conn = sqlite3.connect('')  # или :memory: чтобы сохранить в RAM
 cursor = conn.cursor()
 
-bot = commands.Bot(command_prefix='|')
+bot = commands.Bot(command_prefix='>')
 
 
 @bot.event
@@ -50,10 +54,13 @@ async def edit(ctx):
     table = []
     main_table = await bot.get_channel(660799528856715300).fetch_message(739440611731439697)
     # main_table------------------------------------------------------------------------
-    for row in cursor.execute(f"SELECT nickname,real_name, strftime('%d-%m-%Y', date(birthday/1000, 'unixepoch')), "
-                              f"(strftime('%Y','now')-strftime('%Y',date(birthday/1000,'unixepoch')))-"
-                              f"(strftime('%m-%d','now')<strftime('%m-%d',date(birthday/1000,'unixepoch'))), "
-                              f"country, vacation FROM members where vacation='Нет' ORDER BY member_id"):
+    cursor.execute("SELECT nickname,real_name, DATE_FORMAT(birthday, '%d-%m-%Y'), "
+                   "FORMAT((DATE_FORMAT(now(), '%Y')-DATE_FORMAT(birthday, '%Y'))-"
+                   "(DATE_FORMAT(now(), '%m-%d')<DATE_FORMAT(birthday, '%m-%d')), 0), "
+                   "country, vacation FROM members WHERE vacation='Нет' ORDER BY vacation ASC, id")
+    rows = cursor.fetchall()
+    rows = [list(_) for _ in rows]
+    for row in rows:
         table.append([row[0], row[1], row[2], row[3], row[4], row[5]])
     await main_table.edit(content='@everyone\n' + '```css\n' + tabulate(table,
                                                                         headers=['NICKNAME', 'NAME', 'BIRTHDAY', 'AGE',
@@ -65,17 +72,20 @@ async def edit(ctx):
     len_main_table = len(table)
     table.clear()
     vac_table = await bot.get_channel(660799528856715300).fetch_message(739440690391679017)
-    for row in cursor.execute(f"SELECT nickname,real_name, strftime('%d-%m-%Y', date(birthday/1000, 'unixepoch')), "
-                              f"(strftime('%Y','now')-strftime('%Y',date(birthday/1000,'unixepoch')))-"
-                              f"(strftime('%m-%d','now')<strftime('%m-%d',date(birthday/1000,'unixepoch'))), "
-                              f"country, vacation FROM members where vacation!='Нет' ORDER BY member_id"):
+    cursor.execute("SELECT nickname,real_name, DATE_FORMAT(birthday, '%d-%m-%Y'), "
+                   "FORMAT((DATE_FORMAT(now(), '%Y')-DATE_FORMAT(birthday, '%Y'))-"
+                   "(DATE_FORMAT(now(), '%m-%d')<DATE_FORMAT(birthday, '%m-%d')), 0), "
+                   "country, vacation FROM members WHERE vacation!='Нет' ORDER BY vacation ASC, id")
+    vac_rows = cursor.fetchall()
+    vac_rows = [list(_) for _ in vac_rows]
+    for row in vac_rows:
         table.append([row[0], row[1], row[2], row[3], row[4], row[5]])
     await vac_table.edit(content='```css\n' + tabulate(table,
                                                        headers=['NICKNAME', 'NAME', 'BIRTHDAY', 'AGE',
                                                                 'COUNTRY', 'VACATION'],
                                                        tablefmt="simple",
                                                        showindex=[x + len_main_table + 1 for x in
-                                                                  range(len(table))]) + '```' + '\n@everyone')
+                                                                  range(len(table))]) + '```' + '@everyone')
 
 
 @bot.command(pass_context=True)
@@ -214,12 +224,12 @@ async def on_raw_reaction_add(payload):
             await user.remove_roles(discord.utils.get(guild.roles, id=662080379330494474))  # waited
         else:
             welcome_message = await auth_channel.send(f'Привет, {user.mention}!\n'
-                                    f'Форма анкеты для авторизации на сервере(одним сообщением, обязательно!):\n'
-                                    f'1. Nickname\n2. Clan\n3. Name\nПример анкеты:\n'
-                                    f'1. Kreg78\n2. Equilibrium\n3. Тимур\nПоставьте прочерк "-" на втором пункте, '
-                                    f'если Вы не состоите в клане.\nСоблюдение формы обязательно, потому что '
-                                    f'авторизация производится автоматически мной(ботом)!\n'
-                                    f'*при несоблюдении формы анкеты Вас не авторизуют.')
+                                                      f'Форма анкеты для авторизации на сервере(одним сообщением, обязательно!):\n'
+                                                      f'1. Nickname\n2. Clan\n3. Name\nПример анкеты:\n'
+                                                      f'1. Kreg78\n2. Equilibrium\n3. Тимур\nПоставьте прочерк "-" на втором пункте, '
+                                                      f'если Вы не состоите в клане.\nСоблюдение формы обязательно, потому что '
+                                                      f'авторизация производится автоматически мной(ботом)!\n'
+                                                      f'*при несоблюдении формы анкеты Вас не авторизуют.')
 
             def check(message):
                 return user == message.author
@@ -239,7 +249,7 @@ def add_user_to_db(user):
     cursor.execute(f"SELECT nickname FROM members where nickname='{nickname}'")
     if cursor.fetchone() is None:
         cursor.execute(
-            f"INSERT INTO members(nickname, real_name, member_id) select ?,?,max(member_id)+1 from members",
+            "INSERT INTO members(nickname, real_name, id, vacation) select ?,?,max(id)+1,'Нет' from members",
             (nickname, real_name,))
     else:
         pass
@@ -251,11 +261,11 @@ def add_user_to_db(user):
 async def change(ctx, nickname: str, *, args: str):
     arg = args.split('=')
     if arg[0] == 'id':
-        cursor.execute(f"update members set member_id=member_id+1 where member_id>={int(arg[1])} and "
-                       f"member_id<(select member_id from members where nickname=?)", (nickname,))
-        cursor.execute(f"update members set member_id={int(arg[1])} where nickname=?", (nickname,))
+        cursor.execute(f"update members set id=id+1 where id>={int(arg[1])} and "
+                       f"id<(select id from members where nickname=?)", (nickname,))
+        cursor.execute(f"update members set id={int(arg[1])} where nickname=?", (nickname,))
     elif arg[0] == 'birthday':
-        cursor.execute(f"UPDATE members SET {''.join(arg[0])}=(strftime('%s', {arg[1]})*1000) "
+        cursor.execute(f"UPDATE members SET {''.join(arg[0])}={datetime.strptime(arg[1], '%Y-%m-%d')} "
                        f"where nickname=?", (nickname,))
     else:
         cursor.execute(f"UPDATE members SET {''.join(arg[0])}={arg[1]} where nickname=?", (nickname,))
@@ -273,7 +283,7 @@ async def cmd(ctx, *, command: str):
 @commands.has_permissions(administrator=True)
 @bot.command(pass_context=True)
 async def remove(ctx, nickname: str):
-    cursor.execute(f"update members set member_id=member_id-1 where member_id>(select member_id from members "
+    cursor.execute(f"update members set id=id-1 where id>(select id from members "
                    f"where nickname=?)", (nickname,))
     cursor.execute(f"delete from members where nickname=?", (nickname,))
     conn.commit()
@@ -292,12 +302,18 @@ async def birthday_notification():
     emoji = bot.get_emoji(733391075208593479)
     message = f' сегодня День Рождения{emoji}\nОт всего нашего мини сообщества, поздравляем тебя с этим днем!'
     bday = []
-    for row in cursor.execute(f"select strftime('%d-%m', date(birthday/1000, 'unixepoch')) from members"):
+    cursor.execute(f"select DATE_FORMAT(birthday, '%d-%m') from members")
+    dates = cursor.fetchall()
+    dates = [list(_) for _ in dates]
+    for row in dates:
         bday.append(row[0])
     today = datetime.strftime(datetime.now(), '%d-%m')
     if today in bday:
-        for row in cursor.execute(f"select nickname from members "
-                                  f"where (strftime('%d-%m', date(birthday/1000, 'unixepoch')))=?", (today,)):
+        cursor.execute(f"select nickname from members "
+                       f"where (DATE_FORMAT(birthday, '%d-%m'))=?", (today,))
+        nicknames = cursor.fetchall()
+        nicknames = [list(_) for _ in nicknames]
+        for row in nicknames:
             user = discord.utils.find(lambda u: row[0] in u.display_name, channel.guild.members)
             await channel.send('@everyone, у ' + user.mention + message)
     else:
@@ -314,4 +330,5 @@ async def before():
     await asyncio.sleep(diff)
 
 
-bot.run()
+
+bot.run(TOKEN)
