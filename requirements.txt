@@ -5,6 +5,8 @@ DateTime==4.3
 discord==1.0.1
 langdetect==1.0.8
 pytz==2020.1
-requests==2.23.0
+requests==2.24.0
 
 tabulate~=0.8.7
+mysql-connector-python~=8.0.21
+python-decouple==3.3
