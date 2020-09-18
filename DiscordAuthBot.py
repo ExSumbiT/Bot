@@ -5,21 +5,18 @@ import re
 import sqlite3
 from datetime import datetime
 import mysql.connector
-
 from discord.ext import commands, tasks
 from tabulate import tabulate
+from decouple import config
 
-conn = mysql.connector.connect(user='', password='',
-                               host='',
-                               database='djangoDB', charset='utf8')
 # conn = sqlite3.connect('')  # или :memory: чтобы сохранить в RAM
-cursor = conn.cursor()
-
 bot = commands.Bot(command_prefix='>')
 
 
 @bot.event
 async def on_ready():
+    global old_user
+    old_user = bot.user
     birthday_notification.start()
     activity = discord.Activity(name="мультики", type=discord.ActivityType.watching)
     await bot.change_presence(activity=activity)
@@ -51,6 +48,10 @@ async def send(ctx, *, content):
 @bot.command(pass_context=True)
 @commands.has_permissions(administrator=True)
 async def edit(ctx):
+    conn = mysql.connector.connect(user=config('DB_user'), password=config('DB_password'),
+                                   host=config('DB_host'),
+                                   database=config('DB_name'), charset='utf8', autocommit=True)
+    cursor = conn.cursor()
     table = []
     main_table = await bot.get_channel(660799528856715300).fetch_message(739440611731439697)
     # main_table------------------------------------------------------------------------
@@ -77,6 +78,7 @@ async def edit(ctx):
                    "(DATE_FORMAT(now(), '%m-%d')<DATE_FORMAT(birthday, '%m-%d')), 0), "
                    "country, vacation FROM members WHERE vacation!='Нет' ORDER BY vacation ASC, id")
     vac_rows = cursor.fetchall()
+    conn.close()
     vac_rows = [list(_) for _ in vac_rows]
     for row in vac_rows:
         table.append([row[0], row[1], row[2], row[3], row[4], row[5]])
@@ -185,6 +187,7 @@ async def authorize(guild: discord.Guild, user: discord.Member, message: str):
 
 @bot.event
 async def on_raw_reaction_add(payload):
+    global old_user
     guild = bot.get_guild(payload.guild_id)
     user = guild.get_member(payload.user_id)
     bot_user = guild.get_member(691690627259432981)
@@ -220,30 +223,43 @@ async def on_raw_reaction_add(payload):
             pass
     elif payload.channel_id == 660665545800024083:
         if len(user.roles) > 1:
-            await asyncio.sleep(2)
+            yui_channel = bot.get_channel(660665545800024083)
+            await yui_channel.set_permissions(user, read_messages=False)
             await user.remove_roles(discord.utils.get(guild.roles, id=662080379330494474))  # waited
         else:
-            welcome_message = await auth_channel.send(f'Привет, {user.mention}!\n'
-                                                      f'Форма анкеты для авторизации на сервере(одним сообщением, обязательно!):\n'
-                                                      f'1. Nickname\n2. Clan\n3. Name\nПример анкеты:\n'
-                                                      f'1. Kreg78\n2. Equilibrium\n3. Тимур\nПоставьте прочерк "-" на втором пункте, '
-                                                      f'если Вы не состоите в клане.\nСоблюдение формы обязательно, потому что '
-                                                      f'авторизация производится автоматически мной(ботом)!\n'
-                                                      f'*при несоблюдении формы анкеты Вас не авторизуют.')
-
-            def check(message):
-                return user == message.author
-
-            try:
-                message = await bot.wait_for('message', check=check, timeout=300)
-            except asyncio.TimeoutError:
+            if old_user and user == old_user:
+                await user.create_dm()
+                await user.dm_channel.send("Уупсс...\nКажется у тебя забрали доступ к авторизации, обратись к Zzz#9909")
+                yui_channel = bot.get_channel(660665545800024083)
+                await yui_channel.set_permissions(user, read_messages=False)
                 await user.remove_roles(discord.utils.get(guild.roles, id=662080379330494474))  # waited
-                await welcome_message.delete()
             else:
-                pass
+                old_user = user
+                welcome_message = await auth_channel.send(f'Привет, {user.mention}!\n'
+                                                          f'Форма анкеты для авторизации на сервере(одним сообщением, обязательно!):\n'
+                                                          f'1. Nickname\n2. Clan\n3. Name\nПример анкеты:\n'
+                                                          f'1. Kreg78\n2. Equilibrium\n3. Тимур\nПоставьте прочерк "-" на втором пункте, '
+                                                          f'если Вы не состоите в клане.\nСоблюдение формы обязательно, потому что '
+                                                          f'авторизация производится автоматически мной(ботом)!\n'
+                                                          f'*при несоблюдении формы анкеты Вас не авторизуют.')
+
+                def check(message):
+                    return user == message.author
+
+                try:
+                    message = await bot.wait_for('message', check=check, timeout=300)
+                except asyncio.TimeoutError:
+                    await user.remove_roles(discord.utils.get(guild.roles, id=662080379330494474))  # waited
+                    await welcome_message.delete()
+                else:
+                    pass
 
 
 def add_user_to_db(user):
+    conn = mysql.connector.connect(user=config('DB_user'), password=config('DB_password'),
+                                   host=config('DB_host'),
+                                   database=config('DB_name'), charset='utf8', autocommit=True)
+    cursor = conn.cursor()
     nickname = re.search(r'[^\W*]\w+', user.display_name)[0]
     real_name = re.search(r'(?<=\[).+?(?=\])', user.display_name)[0]
     cursor.execute(f"SELECT nickname FROM members where nickname='{nickname}'")
@@ -254,39 +270,55 @@ def add_user_to_db(user):
     else:
         pass
     conn.commit()
+    conn.close()
 
 
 @commands.has_permissions(administrator=True)
 @bot.command(pass_context=True)
 async def change(ctx, nickname: str, *, args: str):
+    conn = mysql.connector.connect(user=config('DB_user'), password=config('DB_password'),
+                                   host=config('DB_host'),
+                                   database=config('DB_name'), charset='utf8', autocommit=True)
+    cursor = conn.cursor()
     arg = args.split('=')
     if arg[0] == 'id':
         cursor.execute(f"update members set id=id+1 where id>={int(arg[1])} and "
-                       f"id<(select id from members where nickname=?)", (nickname,))
-        cursor.execute(f"update members set id={int(arg[1])} where nickname=?", (nickname,))
+                       f"id<(select id from members where nickname=%s)", (nickname,))
+        cursor.execute(f"update members set id={int(arg[1])} where nickname=%s", (nickname,))
     elif arg[0] == 'birthday':
         cursor.execute(f"UPDATE members SET {''.join(arg[0])}={datetime.strptime(arg[1], '%Y-%m-%d')} "
-                       f"where nickname=?", (nickname,))
+                       f"where nickname=%s", (nickname,))
     else:
-        cursor.execute(f"UPDATE members SET {''.join(arg[0])}={arg[1]} where nickname=?", (nickname,))
+        cursor.execute(f"UPDATE members SET {''.join(arg[0])}={arg[1]} where nickname=%s", (nickname,))
     conn.commit()
+    conn.close()
     await edit(ctx)
 
 
 @commands.has_permissions(administrator=True)
 @bot.command(pass_context=True)
 async def cmd(ctx, *, command: str):
+    conn = mysql.connector.connect(user=config('DB_user'), password=config('DB_password'),
+                                   host=config('DB_host'),
+                                   database=config('DB_name'), charset='utf8', autocommit=True)
+    cursor = conn.cursor()
     cursor.execute(f"{''.join(command)}")
     conn.commit()
+    conn.close()
 
 
 @commands.has_permissions(administrator=True)
 @bot.command(pass_context=True)
 async def remove(ctx, nickname: str):
+    conn = mysql.connector.connect(user=config('DB_user'), password=config('DB_password'),
+                                   host=config('DB_host'),
+                                   database=config('DB_name'), charset='utf8', autocommit=True)
+    cursor = conn.cursor()
     cursor.execute(f"update members set id=id-1 where id>(select id from members "
-                   f"where nickname=?)", (nickname,))
-    cursor.execute(f"delete from members where nickname=?", (nickname,))
+                   f"where nickname=%s)", (nickname,))
+    cursor.execute(f"delete from members where nickname=%s", (nickname,))
     conn.commit()
+    conn.close()
     await edit(ctx)
 
 
@@ -298,6 +330,10 @@ async def poll(ctx):
 
 @tasks.loop(hours=24)
 async def birthday_notification():
+    conn = mysql.connector.connect(user=config('DB_user'), password=config('DB_password'),
+                                   host=config('DB_host'),
+                                   database=config('DB_name'), charset='utf8', autocommit=True)
+    cursor = conn.cursor()
     channel = bot.get_channel(660797576362328066)  # news
     emoji = bot.get_emoji(733391075208593479)
     message = f' сегодня День Рождения{emoji}\nОт всего нашего мини сообщества, поздравляем тебя с этим днем!'
@@ -310,7 +346,7 @@ async def birthday_notification():
     today = datetime.strftime(datetime.now(), '%d-%m')
     if today in bday:
         cursor.execute(f"select nickname from members "
-                       f"where (DATE_FORMAT(birthday, '%d-%m'))=?", (today,))
+                       f"where (DATE_FORMAT(birthday, '%d-%m'))=%s", (today,))
         nicknames = cursor.fetchall()
         nicknames = [list(_) for _ in nicknames]
         for row in nicknames:
@@ -318,6 +354,7 @@ async def birthday_notification():
             await channel.send('@everyone, у ' + user.mention + message)
     else:
         pass
+    conn.close()
 
 
 @birthday_notification.before_loop
@@ -330,5 +367,4 @@ async def before():
     await asyncio.sleep(diff)
 
 
-
-bot.run(TOKEN)
+bot.run(config('DAB_TOKEN'))
