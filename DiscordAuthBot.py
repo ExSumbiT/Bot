@@ -2,14 +2,12 @@ import asyncio
 import discord
 import random
 import re
-import sqlite3
 from datetime import datetime
 import mysql.connector
 from discord.ext import commands, tasks
 from tabulate import tabulate
 from decouple import config
 
-# conn = sqlite3.connect('')  # или :memory: чтобы сохранить в RAM
 bot = commands.Bot(command_prefix='>')
 
 
@@ -128,13 +126,15 @@ async def on_message(message):
     guild = message.guild
     if message.channel.id == 727293535727911566:
         try:
-            color_role = discord.utils.get(guild.roles, name='●────────●Цвет●────────●')
-            perms_role = discord.utils.get(guild.roles, name='●────────●Права●────────●')
+            color_role = discord.utils.get(guild.roles, id=727299629372145684)
+            perms_role = discord.utils.get(guild.roles, id=727298785654472776)
             user = message.author
             content = message.content
             if ' ' in content:
                 content = content.replace(' ', '')
-            color_name = content.split("\n")[1].split(".")[1]
+            if '#' not in content:
+                content = '#' + content
+            color_name = content
             role_create = False
             for r in guild.roles:
                 if r.name.lower() in color_name.lower():
@@ -153,11 +153,10 @@ async def on_message(message):
                             await user.remove_roles(user.roles[_ - 1])
                         await user.add_roles(new_role)
                         break
-                await message.add_reaction(bot.get_emoji(id=662134292058734614))
             else:
                 await user.add_roles(color_role)
                 await user.add_roles(new_role)
-                await message.add_reaction(bot.get_emoji(id=662134292058734614))
+            await message.add_reaction(bot.get_emoji(id=662134292058734614))
         except:
             await message.add_reaction(bot.get_emoji(id=662134317446725633))
     else:
