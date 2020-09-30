@@ -1,5 +1,5 @@
 asyncio==3.4.3
-beautifulsoup4==4.9.1
+beautifulsoup4==4.9.2
 bs4==0.0.1
 DateTime==4.3
 discord==1.0.1
