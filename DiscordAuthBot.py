@@ -43,6 +43,41 @@ async def send(ctx, *, content):
     await ctx.channel.send(content)
 
 
+seconds_per_unit = {"s": 1, "m": 60, "h": 3600, "d": 86400, "w": 604800}
+
+
+@bot.command(pass_context=True)
+@commands.has_permissions(administrator=True)
+async def mute(ctx, user: discord.Member = None, time: str = '1m'):
+    if not user:
+        await ctx.send(f"{ctx.message.author.mention}, ты мне скажи, кого замутить то? ")
+        return
+    clan_chat = bot.get_channel(660800271965880331)
+    guest_chat = bot.get_channel(660547830288744494)
+    lvl_chat = bot.get_channel(660667529647226890)
+    music1 = bot.get_channel(660834112176914442)
+    music2 = bot.get_channel(660830929316610068)
+
+    await clan_chat.set_permissions(user, send_messages=False)
+    await guest_chat.set_permissions(user, send_messages=False)
+    await lvl_chat.set_permissions(user, send_messages=False)
+    await music1.set_permissions(user, send_messages=False)
+    await music2.set_permissions(user, send_messages=False)
+    role = discord.utils.get(ctx.guild.roles, id=760908449227472936)
+    await user.add_roles(role)
+    await ctx.send(f"{user.mention}, теперь ты {role.name}")
+
+    await asyncio.sleep(int(str(time)[:-1]) * seconds_per_unit[str(time)[-1]])
+
+    await clan_chat.set_permissions(user, send_messages=None)
+    await guest_chat.set_permissions(user, send_messages=None)
+    await lvl_chat.set_permissions(user, send_messages=None)
+    await music1.set_permissions(user, send_messages=None)
+    await music2.set_permissions(user, send_messages=None)
+    await ctx.send(f"{user.mention} больше не {role.name}\n{role.mention}, минус один")
+    await user.remove_roles(role)
+
+
 @bot.command(pass_context=True)
 @commands.has_permissions(administrator=True)
 async def edit(ctx):
